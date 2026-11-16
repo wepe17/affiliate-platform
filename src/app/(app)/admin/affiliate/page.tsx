@@ -5,12 +5,33 @@ export const metadata = {
   title: "Affiliate Management",
 };
 
-export default async function AffiliateListPage() {
+interface SearchParams {
+  status?: string;
+  search?: string;
+}
+
+export default async function AffiliateListPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   let affiliates = [];
   let error: string | null = null;
 
   try {
-    affiliates = await listAffiliates();
+    const filters: any[] = [];
+    if (params.status && params.status !== "all") {
+      filters.push(["status", "=", params.status]);
+    }
+    affiliates = await listAffiliates(filters);
+
+    // Client-side search filtering
+    if (params.search) {
+      const searchLower = params.search.toLowerCase();
+      affiliates = affiliates.filter(
+        (a) =>
+          a.affiliate_name.toLowerCase().includes(searchLower) ||
+          a.email.toLowerCase().includes(searchLower) ||
+          a.name.toLowerCase().includes(searchLower),
+      );
+    }
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load affiliates";
   }
@@ -20,6 +41,36 @@ export default async function AffiliateListPage() {
       <div className="page-header">
         <h1>Affiliate Management</h1>
         <p>Manage affiliate partners and their commissions</p>
+      </div>
+
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "2rem", flexWrap: "wrap" }}>
+        <form style={{ display: "flex", gap: "0.5rem", flex: 1, minWidth: "300px" }}>
+          <input
+            type="text"
+            name="search"
+            placeholder="Search by name, email, or ID"
+            defaultValue={params.search || ""}
+            style={{ flex: 1, padding: "0.625rem", border: "1px solid var(--border)", borderRadius: "0.375rem" }}
+          />
+          <select
+            name="status"
+            defaultValue={params.status || "all"}
+            style={{ padding: "0.625rem", border: "1px solid var(--border)", borderRadius: "0.375rem" }}
+          >
+            <option value="all">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Suspended">Suspended</option>
+          </select>
+          <button type="submit" className="btn" style={{ backgroundColor: "var(--affiliate-primary)" }}>
+            Search
+          </button>
+          {(params.search || params.status) && (
+            <Link href="/admin/affiliate" className="btn btn-secondary">
+              Clear
+            </Link>
+          )}
+        </form>
       </div>
 
       <div className="page-toolbar">
@@ -43,7 +94,7 @@ export default async function AffiliateListPage() {
                 <th>Status</th>
                 <th>Total Earnings</th>
                 <th>Join Date</th>
-                <th>Actions</th>
+                <th style={{ width: "200px" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -70,9 +121,12 @@ export default async function AffiliateListPage() {
                       }).format(affiliate.total_earnings)}
                     </td>
                     <td>{affiliate.join_date}</td>
-                    <td>
+                    <td style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                       <Link href={`/admin/affiliate/${affiliate.name}`} className="link-btn">
                         View
+                      </Link>
+                      <Link href={`/admin/affiliate/${affiliate.name}/edit`} className="link-btn">
+                        Edit
                       </Link>
                     </td>
                   </tr>
